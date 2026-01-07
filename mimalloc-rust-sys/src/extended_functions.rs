@@ -1,10 +1,16 @@
 use cty::{c_char, c_int, c_ulonglong, c_void};
+
+use crate::types::mi_heap_t;
+
 // Doc: https://microsoft.github.io/mimalloc/group__malloc.html
 pub const MI_SMALL_SIZE_MAX: usize = 128 * core::mem::size_of::<*mut c_void>();
 pub type mi_deferred_free_fun =
     Option<unsafe extern "C" fn(force: bool, heartbeat: c_ulonglong, arg: *mut c_void)>;
 pub type mi_output_fun = Option<unsafe extern "C" fn(msg: *const c_char, arg: *mut c_void)>;
 pub type mi_error_fun = Option<unsafe extern "C" fn(code: c_int, arg: *mut c_void)>;
+
+// Arena types
+pub type mi_arena_id_t = c_int;
 extern "C" {
     pub fn mi_collect(force: bool);
     pub fn mi_good_size(size: usize) -> usize;
@@ -42,4 +48,44 @@ extern "C" {
     pub fn mi_thread_stats_print_out(out: mi_output_fun, arg: *mut c_void);
     pub fn mi_usable_size(p: *const c_void) -> usize;
     pub fn mi_zalloc_small(size: usize) -> *mut c_void;
+
+    // Arena functions
+    pub fn mi_reserve_os_memory(size: usize, commit: bool, allow_large: bool) -> c_int;
+    pub fn mi_manage_os_memory(
+        start: *mut c_void,
+        size: usize,
+        is_committed: bool,
+        is_large: bool,
+        is_zero: bool,
+        numa_node: c_int,
+    ) -> bool;
+    pub fn mi_debug_show_arenas();
+
+    // Experimental: heaps associated with specific memory arenas
+    pub fn mi_arena_area(arena_id: mi_arena_id_t, size: *mut usize) -> *mut c_void;
+    pub fn mi_reserve_huge_os_pages_at_ex(
+        pages: usize,
+        numa_node: c_int,
+        timeout_msecs: usize,
+        exclusive: bool,
+        arena_id: *mut mi_arena_id_t,
+    ) -> c_int;
+    pub fn mi_reserve_os_memory_ex(
+        size: usize,
+        commit: bool,
+        allow_large: bool,
+        exclusive: bool,
+        arena_id: *mut mi_arena_id_t,
+    ) -> c_int;
+    pub fn mi_manage_os_memory_ex(
+        start: *mut c_void,
+        size: usize,
+        is_committed: bool,
+        is_large: bool,
+        is_zero: bool,
+        numa_node: c_int,
+        exclusive: bool,
+        arena_id: *mut mi_arena_id_t,
+    ) -> bool;
+    pub fn mi_heap_new_in_arena(arena_id: mi_arena_id_t) -> *mut mi_heap_t;
 }
